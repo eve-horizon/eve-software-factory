@@ -1,0 +1,24 @@
+name: Bug report
+description: Report a problem with the Eve Software Factory AgentPack
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: Report vulnerabilities privately via SECURITY.md, not this form.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+  - type: textarea
+    id: versions
+    attributes:
+      label: Versions
+      description: Include the AgentPack SHA, Eve CLI version, and harness/model involved.
