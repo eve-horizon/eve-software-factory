@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: factory-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate AgentPack
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate structure and references
+        run: ruby scripts/validate-agentpack.rb
+
+      - name: Reject private scope and credential-shaped values
+        run: |
+          if git grep -n -I -E \
+            'github\.com/Incept5|AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9]{20,}|BEGIN [A-Z ]*PRIVATE KEY' \
+            -- . ':(exclude).github/workflows/ci.yml'; then
+            echo 'Private scope or credential-shaped value found' >&2
+            exit 1
+          fi
+
+      - name: Resolve pinned public revision anonymously
+        env:
+          GH_TOKEN: ''
+          GITHUB_TOKEN: ''
+          GIT_CONFIG_NOSYSTEM: '1'
+          GIT_CONFIG_GLOBAL: /dev/null
+          GIT_TERMINAL_PROMPT: '0'
+        run: |
+          pin="$(ruby -e 'puts File.read("README.md")[/ref: ([0-9a-f]{40})/, 1]')"
+          test "${#pin}" = 40
+          target="$(mktemp -d)/factory"
+          git -c credential.helper= init "$target"
+          git -C "$target" remote add origin https://github.com/eve-horizon/eve-software-factory.git
+          git -C "$target" -c credential.helper= fetch --depth=1 origin "$pin"
+          git -C "$target" checkout --detach FETCH_HEAD
+          test "$(git -C "$target" rev-parse HEAD)" = "$pin"
+          ruby scripts/validate-agentpack.rb "$target"
